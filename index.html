@@ -75,6 +75,12 @@
     border-radius:8px;background:var(--orange-light);color:var(--orange-dark);}
   .scale-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px;}
 
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+  .chip{background:var(--orange-light);color:var(--orange-dark);border:1px solid #f0d3b0;
+    border-radius:16px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
+    line-height:1.2;transition:transform .08s,background .15s;}
+  .chip:active{transform:scale(.94);background:#f6d9b6;}
+
   .meta-row{display:flex;gap:10px;margin-bottom:14px;}
   .meta-row .field{flex:1;margin-bottom:0;}
 
@@ -210,6 +216,11 @@
           <textarea id="f-ort" placeholder="z.B. zu Hause, in Ruhe"></textarea>
           <button class="mic" data-target="f-ort" title="Diktieren">🎤</button>
         </div>
+        <div class="chips" data-target="f-ort">
+          <button type="button" class="chip">zu Hause</button>
+          <button type="button" class="chip">im Büro</button>
+          <button type="button" class="chip">unterwegs</button>
+        </div>
       </div>
       <div class="field">
         <label><span class="num">2</span> Speisen und Getränke</label>
@@ -217,6 +228,13 @@
         <div class="input-wrap">
           <textarea id="f-speisen" placeholder="z.B. 200g Haferflocken mit Hafermilch, 1 Banane, Zimt"></textarea>
           <button class="mic" data-target="f-speisen" title="Diktieren">🎤</button>
+        </div>
+        <div class="chips" data-target="f-speisen">
+          <button type="button" class="chip">Leitungswasser mit Apfelessig</button>
+          <button type="button" class="chip">Kaffee schwarz 200ml</button>
+          <button type="button" class="chip">Frühstücksjoghurt mit Haferflocken, Nüssen und Früchten</button>
+          <button type="button" class="chip">Hüttenkäse</button>
+          <button type="button" class="chip">Salat mit Thunfisch, Mozzarella, Senfdressing</button>
         </div>
       </div>
       <div class="field">
@@ -239,6 +257,11 @@
         <div class="input-wrap">
           <textarea id="f-besonderheiten" placeholder="z.B. stressiger Arbeitstag, wenig geschlafen, Magnesium eingenommen"></textarea>
           <button class="mic" data-target="f-besonderheiten" title="Diktieren">🎤</button>
+        </div>
+        <div class="chips" data-target="f-besonderheiten">
+          <button type="button" class="chip">Stressiger Alltag</button>
+          <button type="button" class="chip">Beim eMTB Enduro</button>
+          <button type="button" class="chip">Fast Food</button>
         </div>
       </div>
     </div>
@@ -398,15 +421,12 @@ document.querySelectorAll('.mic').forEach(btn=>{
     const target=$(btn.dataset.target);
     const rec=new SR(); rec.lang='de-DE'; rec.interimResults=true; rec.continuous=true;
     const baseText=target.value?target.value.trim()+' ':'';
-    let finalText='';
     rec.onstart=()=>{ btn.classList.add('recording'); btn.textContent='⏹'; activeRec=rec; };
     rec.onresult=ev=>{
-      let interim='';
-      for(let i=ev.resultIndex;i<ev.results.length;i++){
-        const t=ev.results[i][0].transcript;
-        if(ev.results[i].isFinal) finalText+=t+' '; else interim+=t;
-      }
-      target.value=(baseText+finalText+interim).replace(/\s+/g,' ').trimStart();
+      // Feldinhalt komplett aus allen Segmenten neu aufbauen (verhindert Doppelungen)
+      let full='';
+      for(let i=0;i<ev.results.length;i++){ full+=ev.results[i][0].transcript+' '; }
+      target.value=(baseText+full).replace(/\s+/g,' ').trimStart();
     };
     rec.onerror=ev=>{
       if(ev.error==='not-allowed'||ev.error==='service-not-allowed') toast('Bitte Mikrofon-Zugriff erlauben.');
@@ -414,6 +434,19 @@ document.querySelectorAll('.mic').forEach(btn=>{
     };
     rec.onend=()=>{ btn.classList.remove('recording'); btn.textContent='🎤'; activeRec=null; };
     try{ rec.start(); }catch(e){}
+  });
+});
+
+/* ---------- Schnellauswahl-Chips ---------- */
+document.querySelectorAll('.chips').forEach(wrap=>{
+  const target=$(wrap.dataset.target);
+  wrap.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      const txt=chip.textContent.trim();
+      const cur=target.value.trim().replace(/[,\s]+$/,'');
+      target.value = cur ? cur+', '+txt : txt;
+      target.focus();
+    });
   });
 });
 
