@@ -75,6 +75,12 @@
     border-radius:8px;background:var(--orange-light);color:var(--orange-dark);}
   .scale-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px;}
 
+  .dob-row{display:flex;gap:8px;}
+  .dob-row select{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;
+    padding:11px 8px;font-size:16px;font-family:inherit;color:var(--text);background:#fff;}
+  .dob-row select:focus{outline:none;border-color:var(--orange);}
+  .dob-row #p-dob-y{flex:1.2;}
+
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
   .chip{background:var(--orange-light);color:var(--orange-dark);border:1px solid #f0d3b0;
     border-radius:16px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
@@ -193,7 +199,13 @@
           <div class="field"><label>Name</label><input type="text" id="p-name" placeholder="Vor- und Nachname"></div>
         </div>
         <div class="meta-row">
-          <div class="field"><label>Geburtsdatum</label><input type="date" id="p-dob"></div>
+          <div class="field"><label>Geburtsdatum</label>
+            <div class="dob-row">
+              <select id="p-dob-d" aria-label="Tag"><option value="">Tag</option></select>
+              <select id="p-dob-m" aria-label="Monat"><option value="">Monat</option></select>
+              <select id="p-dob-y" aria-label="Jahr"><option value="">Jahr</option></select>
+            </div>
+          </div>
         </div>
         <div class="status" style="text-align:left;margin-top:8px;">Wird automatisch gespeichert und erscheint auf den Exporten für die Beraterin.</div>
       </div>
@@ -386,14 +398,31 @@ $('f-intensitaet').addEventListener('input',e=>{
 });
 
 /* ---------- Profil (Name + Geburtsdatum) ---------- */
+/* Geburtsdatum-Dropdowns einmalig füllen (Jahr direkt wählbar) */
+(function buildDob(){
+  const dSel=$('p-dob-d'), mSel=$('p-dob-m'), ySel=$('p-dob-y');
+  const months=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  for(let d=1;d<=31;d++) dSel.add(new Option(d,pad(d)));
+  months.forEach((m,i)=>mSel.add(new Option(m,pad(i+1))));
+  const yNow=new Date().getFullYear();
+  for(let y=yNow;y>=1900;y--) ySel.add(new Option(y,String(y)));
+})();
+function dobValue(){
+  const d=$('p-dob-d').value, m=$('p-dob-m').value, y=$('p-dob-y').value;
+  return (d&&m&&y)? y+'-'+m+'-'+d : '';
+}
+function setDob(iso){
+  const p=(iso||'').split('-');
+  $('p-dob-y').value=p[0]||''; $('p-dob-m').value=p[1]||''; $('p-dob-d').value=p[2]||'';
+}
 function loadProfile(){
   try{ profile=JSON.parse(localStorage.getItem(PROFILE_KEY))||{}; }catch(e){ profile={}; }
   $('p-name').value=profile.name||'';
-  $('p-dob').value=profile.dob||'';
+  setDob(profile.dob||'');
   renderProfileSummary();
 }
 function saveProfile(){
-  profile={ name:$('p-name').value.trim(), dob:$('p-dob').value };
+  profile={ name:$('p-name').value.trim(), dob:dobValue() };
   try{ localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); }catch(e){}
   renderProfileSummary();
 }
@@ -408,7 +437,7 @@ function ownerLine(){
   return (profile.name?'Name: '+profile.name:'')+(profile.dob?'   ·   geb. '+isoToDe(profile.dob):'');
 }
 $('p-name').addEventListener('input',saveProfile);
-$('p-dob').addEventListener('change',saveProfile);
+['p-dob-d','p-dob-m','p-dob-y'].forEach(id=>$(id).addEventListener('change',saveProfile));
 $('profile-head').addEventListener('click',()=>$('profile-card').classList.toggle('open'));
 
 /* ---------- Diktieren ---------- */
