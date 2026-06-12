@@ -56,7 +56,7 @@
   .field .hint{font-size:11.5px;color:var(--muted);font-weight:400;margin-bottom:6px;display:block;}
 
   .input-wrap{position:relative;display:flex;gap:8px;align-items:flex-start;}
-  textarea,input[type=text]{width:100%;border:1.5px solid var(--border);border-radius:10px;
+  textarea,input[type=text],input[type=date],input[type=time]{width:100%;border:1.5px solid var(--border);border-radius:10px;
     padding:11px 12px;font-size:16px;font-family:inherit;color:var(--text);background:#fff;
     resize:vertical;line-height:1.4;transition:border-color .15s;}
   textarea{min-height:54px;}
@@ -91,12 +91,24 @@
   .export-card h3{margin:0 0 4px;font-size:14px;color:var(--orange-dark);}
   .export-card p{margin:0 0 10px;font-size:12px;color:#8a6c45;}
 
+  /* Profil-Karte (Tagebuch-Besitzer) */
+  .profile-card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;}
+  .profile-head{display:flex;align-items:center;gap:8px;padding:13px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--orange-dark);}
+  .profile-head .who{font-weight:400;color:var(--muted);font-size:12.5px;margin-left:2px;flex:1;}
+  .profile-head .chev{transition:transform .2s;}
+  .profile-card.open .profile-head .chev{transform:rotate(180deg);}
+  .profile-body{display:none;padding:0 14px 14px;}
+  .profile-card.open .profile-body{display:block;}
+
   .entry{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:13px 14px;
     margin-bottom:10px;border:1px solid var(--border);border-left:4px solid var(--orange);}
   .entry .e-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:7px;}
   .entry .e-time{font-weight:700;font-size:14px;color:var(--orange-dark);}
   .entry .e-place{font-size:12.5px;color:var(--muted);}
-  .entry .e-del{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;flex:none;}
+  .entry .e-actions{display:flex;gap:2px;flex:none;}
+  .entry .e-btn{background:none;border:none;font-size:17px;cursor:pointer;padding:2px 5px;line-height:1;}
+  .entry .e-edit{color:var(--orange-dark);}
+  .entry .e-del{color:var(--red);}
   .entry .e-line{font-size:13.5px;margin:4px 0;}
   .entry .e-line b{color:#555;font-weight:600;}
   .e-badge{display:inline-block;font-size:12px;font-weight:700;color:#fff;border-radius:6px;padding:1px 8px;margin-left:4px;}
@@ -125,17 +137,19 @@
   .note{font-size:12px;color:var(--muted);background:var(--orange-light);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.4;}
   .banner{background:#fff;border:1.5px solid var(--orange);border-radius:11px;padding:11px 13px;margin-bottom:12px;
     display:flex;align-items:center;gap:10px;font-size:13px;}
+  .banner.edit{border-color:var(--green);background:#eef8f1;color:#2c7a48;}
   .banner button{margin-left:auto;}
   .status{font-size:11px;color:var(--muted);text-align:center;margin-top:6px;}
 
   @media print{
     body{background:#fff;padding:0;} @page{margin:14mm;}
-    header,.tabbar,.toolbar,.export-card,.btn,.mic,.search,#view-new,.banner,.note,.status{display:none!important;}
+    header,.tabbar,.toolbar,.export-card,.btn,.mic,.search,#view-new,.banner,.note,.status,.e-actions{display:none!important;}
     .print-title{display:block!important;}
     .entry{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
   }
   .print-title{display:none;margin-bottom:14px;}
   .print-title h1{font-size:18px;margin:0;} .print-title p{font-size:12px;color:#555;margin:2px 0 0;}
+  .print-title .owner{font-size:13px;color:#222;font-weight:600;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -157,13 +171,35 @@
       📲 App installieren <button class="btn btn-primary btn-sm" id="btn-install">Installieren</button>
     </div>
 
+    <div id="edit-banner" class="banner edit" style="display:none;">
+      ✏️ Eintrag wird bearbeitet <button class="btn btn-ghost btn-sm" id="btn-cancel-edit">Abbrechen</button>
+    </div>
+
+    <!-- Tagebuch-Besitzer -->
+    <div class="profile-card" id="profile-card">
+      <div class="profile-head" id="profile-head">
+        <span>👤 Tagebuch-Besitzer</span>
+        <span class="who" id="profile-who"></span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="profile-body">
+        <div class="meta-row">
+          <div class="field"><label>Name</label><input type="text" id="p-name" placeholder="Vor- und Nachname"></div>
+        </div>
+        <div class="meta-row">
+          <div class="field"><label>Geburtsdatum</label><input type="date" id="p-dob"></div>
+        </div>
+        <div class="status" style="text-align:left;margin-top:8px;">Wird automatisch gespeichert und erscheint auf den Exporten für die Beraterin.</div>
+      </div>
+    </div>
+
     <div class="note">
-      💡 Tippe auf <b>🎤</b> neben einem Feld, um zu <b>diktieren</b>. Alle Einträge werden sicher auf diesem Gerät gespeichert – auch offline.
+      💡 Tippe auf <b>🎤</b> neben einem Feld, um zu <b>diktieren</b>. Datum/Uhrzeit lassen sich antippen und ändern. Alles wird sicher auf diesem Gerät gespeichert – auch offline.
     </div>
 
     <div class="meta-row">
-      <div class="field"><label>Datum</label><input type="text" id="f-date" inputmode="none"></div>
-      <div class="field"><label>Uhrzeit</label><input type="text" id="f-clock" inputmode="none"></div>
+      <div class="field"><label>Datum</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Uhrzeit</label><input type="time" id="f-clock"></div>
     </div>
 
     <div class="card">
@@ -218,6 +254,7 @@
     <div class="print-title">
       <h1>Ernährungs-Symptom-Tagebuch</h1>
       <p id="print-sub">Medizinische Ernährungstherapie · Verena Herrmann</p>
+      <div class="owner" id="print-owner"></div>
     </div>
 
     <div class="export-card">
@@ -252,9 +289,10 @@
 <script>
 /* ============================================================
    Speicherung: IndexedDB (robust) + localStorage-Spiegel als Fallback
+   Schlüssel & Datenformat unverändert -> bestehende Einträge bleiben erhalten
    ============================================================ */
-const DB_NAME='est-db', STORE='entries', LS_KEY='est_entries_v1';
-let db=null, entries=[];
+const DB_NAME='est-db', STORE='entries', LS_KEY='est_entries_v1', PROFILE_KEY='est_profile_v1';
+let db=null, entries=[], profile={}, editingId=null;
 
 function openDB(){
   return new Promise((res)=>{
@@ -281,20 +319,17 @@ function lsSave(){ try{localStorage.setItem(LS_KEY,JSON.stringify(entries));}cat
 
 async function initStorage(){
   db=await openDB();
-  // persistente Speicherung anfordern (Android löscht Daten dann nicht bei Speichermangel)
   let persisted=false;
   if(navigator.storage&&navigator.storage.persist){
-    try{ persisted=await navigator.storage.persisted?await navigator.storage.persisted():false;
+    try{ persisted=navigator.storage.persisted?await navigator.storage.persisted():false;
       if(!persisted) persisted=await navigator.storage.persist(); }catch(e){}
   }
   const fromIdb=await idbAll();
   const fromLs=lsLoad();
-  // beide Quellen zusammenführen (nach id), IndexedDB bevorzugt
   const map=new Map();
   fromLs.forEach(e=>map.set(e.id,e));
   if(fromIdb) fromIdb.forEach(e=>map.set(e.id,e));
   entries=[...map.values()];
-  // beide Speicher synchron halten
   if(db) entries.forEach(idbPut);
   lsSave();
   $('storage-status').textContent =
@@ -306,11 +341,15 @@ function removeEntry(id){ idbDel(id); lsSave(); }
 
 /* ============================================================ */
 const $=id=>document.getElementById(id);
-
 function pad(n){return String(n).padStart(2,'0');}
+
+/* ---- Datums-Helfer: Anzeige DD.MM.YYYY <-> Eingabe-ISO YYYY-MM-DD ---- */
+function isoToDe(iso){ if(!iso)return''; const p=iso.split('-'); return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:iso; }
+function deToIso(de){ if(!de)return''; const p=de.split('.'); return p.length===3?p[2]+'-'+pad(p[1])+'-'+pad(p[0]):''; }
+
 function setNow(){
   const d=new Date();
-  $('f-date').value=pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();
+  $('f-date').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   $('f-clock').value=pad(d.getHours())+':'+pad(d.getMinutes());
 }
 setNow();
@@ -322,6 +361,32 @@ $('f-intensitaet').addEventListener('input',e=>{
   $('intensitaet-val').style.background=v==0?'var(--orange-light)':intColor(v);
   $('intensitaet-val').style.color=v==0?'var(--orange-dark)':'#fff';
 });
+
+/* ---------- Profil (Name + Geburtsdatum) ---------- */
+function loadProfile(){
+  try{ profile=JSON.parse(localStorage.getItem(PROFILE_KEY))||{}; }catch(e){ profile={}; }
+  $('p-name').value=profile.name||'';
+  $('p-dob').value=profile.dob||'';
+  renderProfileSummary();
+}
+function saveProfile(){
+  profile={ name:$('p-name').value.trim(), dob:$('p-dob').value };
+  try{ localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); }catch(e){}
+  renderProfileSummary();
+}
+function renderProfileSummary(){
+  const who=$('profile-who');
+  if(profile.name||profile.dob){
+    who.textContent=(profile.name||'')+(profile.dob?' · *'+isoToDe(profile.dob):'');
+  }else{ who.textContent='— bitte ausfüllen'; }
+}
+function ownerLine(){
+  if(!profile.name&&!profile.dob)return'';
+  return (profile.name?'Name: '+profile.name:'')+(profile.dob?'   ·   geb. '+isoToDe(profile.dob):'');
+}
+$('p-name').addEventListener('input',saveProfile);
+$('p-dob').addEventListener('change',saveProfile);
+$('profile-head').addEventListener('click',()=>$('profile-card').classList.toggle('open'));
 
 /* ---------- Diktieren ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -352,25 +417,60 @@ document.querySelectorAll('.mic').forEach(btn=>{
   });
 });
 
-/* ---------- Speichern ---------- */
+/* ---------- Speichern (neu ODER bearbeiten) ---------- */
+function computeTs(iso,clock){
+  try{ const t=new Date((iso||'')+'T'+(clock||'00:00')).getTime(); return isNaN(t)?Date.now():t; }
+  catch(e){ return Date.now(); }
+}
 $('btn-save').addEventListener('click',()=>{
-  const e={ id:Date.now(),
-    date:$('f-date').value.trim(), clock:$('f-clock').value.trim(),
-    ts:Date.now(),
+  const iso=$('f-date').value, clock=$('f-clock').value;
+  const data={
+    date:isoToDe(iso), clock:clock,
     ort:$('f-ort').value.trim(), speisen:$('f-speisen').value.trim(),
     beschwerden:$('f-beschwerden').value.trim(),
     intensitaet:parseInt($('f-intensitaet').value,10),
-    besonderheiten:$('f-besonderheiten').value.trim() };
-  if(!e.speisen&&!e.beschwerden&&!e.ort&&!e.besonderheiten){ toast('Bitte mindestens ein Feld ausfüllen.'); return; }
-  entries.push(e); persistEntry(e);
-  clearForm(); toast('✓ Eintrag gespeichert'); switchView('list'); render();
+    besonderheiten:$('f-besonderheiten').value.trim(),
+    ts:computeTs(iso,clock)
+  };
+  if(!data.speisen&&!data.beschwerden&&!data.ort&&!data.besonderheiten){ toast('Bitte mindestens ein Feld ausfüllen.'); return; }
+
+  if(editingId!=null){
+    const idx=entries.findIndex(e=>e.id===editingId);
+    if(idx>-1){ entries[idx]={...entries[idx],...data}; persistEntry(entries[idx]); }
+    toast('✓ Änderungen gespeichert');
+  }else{
+    const e={ id:Date.now(), ...data };
+    entries.push(e); persistEntry(e);
+    toast('✓ Eintrag gespeichert');
+  }
+  exitEdit(); clearForm(); switchView('list'); render();
 });
-$('btn-clear').addEventListener('click',clearForm);
+
+$('btn-clear').addEventListener('click',()=>{ exitEdit(); clearForm(); });
+$('btn-cancel-edit').addEventListener('click',()=>{ exitEdit(); clearForm(); switchView('list'); });
+
 function clearForm(){
   ['f-ort','f-speisen','f-beschwerden','f-besonderheiten'].forEach(id=>$(id).value='');
   $('f-intensitaet').value=0; $('intensitaet-val').textContent='0';
   $('intensitaet-val').style.background='var(--orange-light)'; $('intensitaet-val').style.color='var(--orange-dark)';
   setNow();
+}
+function exitEdit(){
+  editingId=null;
+  $('edit-banner').style.display='none';
+  $('btn-save').textContent='✓ Eintrag speichern';
+}
+function loadForEdit(id){
+  const e=entries.find(x=>x.id===id); if(!e)return;
+  editingId=id;
+  $('f-date').value=deToIso(e.date)|| '';
+  $('f-clock').value=e.clock||'';
+  $('f-ort').value=e.ort||''; $('f-speisen').value=e.speisen||'';
+  $('f-beschwerden').value=e.beschwerden||''; $('f-besonderheiten').value=e.besonderheiten||'';
+  const v=e.intensitaet||0; $('f-intensitaet').value=v; $('f-intensitaet').dispatchEvent(new Event('input'));
+  $('edit-banner').style.display='flex';
+  $('btn-save').textContent='✓ Änderungen speichern';
+  switchView('new');
 }
 
 /* ---------- Rendering ---------- */
@@ -378,7 +478,7 @@ function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function render(){
   const q=($('search').value||'').toLowerCase();
   const box=$('entries');
-  let list=entries.slice().sort((a,b)=>b.id-a.id);
+  let list=entries.slice().sort((a,b)=>(b.ts||b.id)-(a.ts||a.id));
   if(q) list=list.filter(e=>JSON.stringify(e).toLowerCase().includes(q));
   if(!list.length){
     box.innerHTML='<div class="empty"><div class="big">📖</div>'+
@@ -394,7 +494,10 @@ function render(){
       return `<div class="entry">
         <div class="e-head">
           <div><span class="e-time">${esc(e.clock)||'--:--'}</span>${e.ort?`<span class="e-place"> · ${esc(e.ort)}</span>`:''}</div>
-          <button class="e-del" data-del="${e.id}" title="Löschen">🗑</button>
+          <div class="e-actions">
+            <button class="e-btn e-edit" data-edit="${e.id}" title="Bearbeiten">✏️</button>
+            <button class="e-btn e-del" data-del="${e.id}" title="Löschen">🗑</button>
+          </div>
         </div>
         ${e.speisen?`<div class="e-line"><b>🍽 Speisen:</b> ${esc(e.speisen)}</div>`:''}
         ${e.beschwerden?`<div class="e-line"><b>⚠ Beschwerden:</b> ${esc(e.beschwerden)}${badge}</div>`
@@ -404,10 +507,12 @@ function render(){
     }).join('');
     return `<div class="day-group"><div class="day-head"><span>📅 ${esc(day)}</span><span class="count">${groups[day].length} Eintrag(e)</span></div>${items}</div>`;
   }).join('');
+  box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>loadForEdit(Number(b.dataset.edit))));
   box.querySelectorAll('[data-del]').forEach(b=>{
     b.addEventListener('click',()=>{
       if(confirm('Diesen Eintrag löschen?')){
         const id=Number(b.dataset.del);
+        if(editingId===id) exitEdit();
         entries=entries.filter(x=>x.id!=id); removeEntry(id); render(); toast('Eintrag gelöscht');
       }
     });
@@ -420,19 +525,26 @@ function last7(){
   const cutoff=Date.now()-7*24*60*60*1000;
   return entries.filter(e=>(e.ts||e.id)>=cutoff);
 }
+function setPrintHeader(label){
+  $('print-sub').textContent='Medizinische Ernährungstherapie · Verena Herrmann'+(label?'   —   '+label:'');
+  $('print-owner').textContent=ownerLine();
+}
 function exportCSV(list,name){
   if(!list.length){toast('Keine Einträge in diesem Zeitraum.');return;}
+  const meta=[];
+  if(profile.name) meta.push('Name:;"'+profile.name.replace(/"/g,'""')+'"');
+  if(profile.dob)  meta.push('Geburtsdatum:;'+isoToDe(profile.dob));
   const head=['Datum','Uhrzeit','Uhrzeit und Ort','Speisen und Getränke','Beschwerden','Intensität (0-10)','Besonderheiten'];
-  const rows=list.slice().sort((a,b)=>a.id-b.id).map(e=>
+  const rows=list.slice().sort((a,b)=>(a.ts||a.id)-(b.ts||b.id)).map(e=>
     [e.date,e.clock,e.ort,e.speisen,e.beschwerden,e.intensitaet,e.besonderheiten]
     .map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';'));
-  download(name,'﻿'+head.join(';')+'\n'+rows.join('\n'),'text/csv');
+  const body=(meta.length?meta.join('\n')+'\n\n':'')+head.join(';')+'\n'+rows.join('\n');
+  download(name,'﻿'+body,'text/csv');
   toast('CSV exportiert');
 }
 function printList(list,label){
   if(!list.length){toast('Keine Einträge in diesem Zeitraum.');return;}
-  $('print-sub').textContent='Medizinische Ernährungstherapie · Verena Herrmann   —   '+label;
-  // temporär nur die gewünschten Einträge anzeigen
+  setPrintHeader(label);
   const ids=new Set(list.map(e=>e.id));
   const all=entries; entries=entries.filter(e=>ids.has(e.id));
   $('search').value=''; render();
@@ -445,11 +557,11 @@ function fmtRange(){
 }
 $('btn-pdf7').addEventListener('click',()=>printList(last7(),fmtRange()));
 $('btn-csv7').addEventListener('click',()=>exportCSV(last7(),'tagebuch-7-tage.csv'));
-$('btn-pdf').addEventListener('click',()=>{ $('print-sub').textContent='Medizinische Ernährungstherapie · Verena Herrmann'; render(); window.print(); });
+$('btn-pdf').addEventListener('click',()=>{ setPrintHeader(''); render(); window.print(); });
 $('btn-csv').addEventListener('click',()=>exportCSV(entries,'ernaehrungstagebuch.csv'));
 $('btn-json').addEventListener('click',()=>{
-  if(!entries.length){toast('Keine Einträge.');return;}
-  download('tagebuch-backup.json',JSON.stringify(entries,null,2),'application/json'); toast('Backup erstellt');
+  if(!entries.length&&!profile.name){toast('Keine Daten.');return;}
+  download('tagebuch-backup.json',JSON.stringify({profile,entries},null,2),'application/json'); toast('Backup erstellt');
 });
 $('btn-import').addEventListener('click',()=>$('file-import').click());
 $('file-import').addEventListener('change',ev=>{
@@ -457,9 +569,15 @@ $('file-import').addEventListener('change',ev=>{
   const r=new FileReader();
   r.onload=()=>{
     try{
-      const data=JSON.parse(r.result); if(!Array.isArray(data))throw 0;
+      const data=JSON.parse(r.result);
+      // unterstützt altes Format (Array) UND neues Format ({profile,entries})
+      const arr=Array.isArray(data)?data:(data.entries||[]);
+      if(!Array.isArray(arr))throw 0;
+      if(!Array.isArray(data)&&data.profile&&(data.profile.name||data.profile.dob)){
+        if(!profile.name&&!profile.dob){ profile=data.profile; localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); loadProfile(); }
+      }
       const ids=new Set(entries.map(e=>e.id)); let added=0;
-      data.forEach(e=>{ if(e&&e.id&&!ids.has(e.id)){ entries.push(e); persistEntry(e); added++; } });
+      arr.forEach(e=>{ if(e&&e.id&&!ids.has(e.id)){ entries.push(e); persistEntry(e); added++; } });
       render(); toast(added+' Eintrag(e) geladen');
     }catch(e){ toast('Datei konnte nicht gelesen werden.'); }
   };
@@ -496,6 +614,7 @@ $('btn-install').addEventListener('click',async()=>{
 window.addEventListener('appinstalled',()=>{ $('install-banner').style.display='none'; toast('App installiert ✓'); });
 
 /* ---------- Start ---------- */
+loadProfile();
 initStorage().then(render);
 </script>
 </body>
