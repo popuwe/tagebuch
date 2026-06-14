@@ -1,5 +1,5 @@
 /* Service Worker – Offline-Cache für die Ernährungs-Tagebuch PWA */
-const CACHE = 'est-cache-v4';
+const CACHE = 'est-cache-v5';
 const ASSETS = [
   './',
   './index.html',
