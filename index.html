@@ -81,6 +81,14 @@
   .dob-row select:focus{outline:none;border-color:var(--orange);}
   .dob-row #p-dob-y{flex:1.2;}
 
+  .photo-area{margin-top:10px;}
+  .photo-preview{position:relative;display:inline-block;margin-top:10px;}
+  .photo-preview img{max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--border);display:block;}
+  .photo-remove{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;
+    border:none;background:rgba(0,0,0,.6);color:#fff;font-size:16px;cursor:pointer;line-height:1;}
+  .e-photo{margin-top:7px;}
+  .e-photo img{max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--border);cursor:pointer;}
+
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
   .chip{background:var(--orange-light);color:var(--orange-dark);border:1px solid #f0d3b0;
     border-radius:16px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
@@ -158,6 +166,7 @@
     header,.tabbar,.toolbar,.export-card,.btn,.mic,.search,#view-new,.banner,.note,.status,.e-actions{display:none!important;}
     .print-title{display:block!important;}
     .entry{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
+    .e-photo img{max-width:70mm!important;max-height:70mm!important;}
   }
   .print-title{display:none;margin-bottom:14px;}
   .print-title h1{font-size:18px;margin:0;} .print-title p{font-size:12px;color:#555;margin:2px 0 0;}
@@ -247,6 +256,14 @@
           <button type="button" class="chip">Frühstücksjoghurt mit Haferflocken, Nüssen und Früchten</button>
           <button type="button" class="chip">Hüttenkäse</button>
           <button type="button" class="chip">Salat mit Thunfisch, Mozzarella, Senfdressing</button>
+        </div>
+        <input type="file" id="f-photo-input" accept="image/*" style="display:none;">
+        <div class="photo-area">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-photo">📷 Foto aus Galerie/Kamera</button>
+          <div id="photo-preview" class="photo-preview" style="display:none;">
+            <img id="photo-thumb" alt="Foto-Vorschau">
+            <button type="button" id="btn-photo-remove" class="photo-remove" title="Foto entfernen">✕</button>
+          </div>
         </div>
       </div>
       <div class="field">
@@ -350,7 +367,8 @@ function idbPut(e){ try{ db&&db.transaction(STORE,'readwrite').objectStore(STORE
 function idbDel(id){ try{ db&&db.transaction(STORE,'readwrite').objectStore(STORE).delete(id);}catch(_){} }
 
 function lsLoad(){ try{return JSON.parse(localStorage.getItem(LS_KEY))||[];}catch(e){return[];} }
-function lsSave(){ try{localStorage.setItem(LS_KEY,JSON.stringify(entries));}catch(e){} }
+/* localStorage-Spiegel OHNE Fotos (sonst Speicher-Überlauf); Fotos liegen in IndexedDB */
+function lsSave(){ try{localStorage.setItem(LS_KEY,JSON.stringify(entries.map(({photo,...r})=>r)));}catch(e){} }
 
 async function initStorage(){
   db=await openDB();
@@ -479,6 +497,35 @@ document.querySelectorAll('.chips').forEach(wrap=>{
   });
 });
 
+/* ---------- Foto anhängen (Galerie/Kamera) ---------- */
+let currentPhoto=null;
+function processImage(file,cb){
+  const img=new Image(); const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const max=1280; let w=img.width, h=img.height;
+    if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    try{ cb(c.toDataURL('image/jpeg',0.72)); }catch(e){ cb(null); }
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); cb(null); };
+  img.src=url;
+}
+function showPhoto(dataUrl){
+  currentPhoto=dataUrl||null;
+  if(currentPhoto){ $('photo-thumb').src=currentPhoto; $('photo-preview').style.display='inline-block'; $('btn-photo').textContent='📷 Foto ändern'; }
+  else{ $('photo-thumb').removeAttribute('src'); $('photo-preview').style.display='none'; $('btn-photo').textContent='📷 Foto aus Galerie/Kamera'; }
+}
+$('btn-photo').addEventListener('click',()=>$('f-photo-input').click());
+$('f-photo-input').addEventListener('change',ev=>{
+  const file=ev.target.files[0]; ev.target.value='';
+  if(!file)return;
+  toast('Foto wird verarbeitet …');
+  processImage(file,url=>{ if(url){ showPhoto(url); toast('Foto angehängt'); } else toast('Foto konnte nicht geladen werden.'); });
+});
+$('btn-photo-remove').addEventListener('click',()=>showPhoto(null));
+
 /* ---------- Speichern (neu ODER bearbeiten) ---------- */
 function computeTs(iso,clock){
   try{ const t=new Date((iso||'')+'T'+(clock||'00:00')).getTime(); return isNaN(t)?Date.now():t; }
@@ -492,6 +539,7 @@ $('btn-save').addEventListener('click',()=>{
     beschwerden:$('f-beschwerden').value.trim(),
     intensitaet:parseInt($('f-intensitaet').value,10),
     besonderheiten:$('f-besonderheiten').value.trim(),
+    photo:currentPhoto||'',
     ts:computeTs(iso,clock)
   };
   if(!data.speisen&&!data.beschwerden&&!data.ort&&!data.besonderheiten){ toast('Bitte mindestens ein Feld ausfüllen.'); return; }
@@ -515,6 +563,7 @@ function clearForm(){
   ['f-ort','f-speisen','f-beschwerden','f-besonderheiten'].forEach(id=>$(id).value='');
   $('f-intensitaet').value=0; $('intensitaet-val').textContent='0';
   $('intensitaet-val').style.background='var(--orange-light)'; $('intensitaet-val').style.color='var(--orange-dark)';
+  showPhoto(null);
   setNow();
 }
 function exitEdit(){
@@ -530,6 +579,7 @@ function loadForEdit(id){
   $('f-ort').value=e.ort||''; $('f-speisen').value=e.speisen||'';
   $('f-beschwerden').value=e.beschwerden||''; $('f-besonderheiten').value=e.besonderheiten||'';
   const v=e.intensitaet||0; $('f-intensitaet').value=v; $('f-intensitaet').dispatchEvent(new Event('input'));
+  showPhoto(e.photo||null);
   $('edit-banner').style.display='flex';
   $('btn-save').textContent='✓ Änderungen speichern';
   switchView('new');
@@ -541,7 +591,7 @@ function render(){
   const q=($('search').value||'').toLowerCase();
   const box=$('entries');
   let list=entries.slice().sort((a,b)=>(b.ts||b.id)-(a.ts||a.id));
-  if(q) list=list.filter(e=>JSON.stringify(e).toLowerCase().includes(q));
+  if(q) list=list.filter(e=>[e.date,e.clock,e.ort,e.speisen,e.beschwerden,e.besonderheiten].join(' ').toLowerCase().includes(q));
   if(!list.length){
     box.innerHTML='<div class="empty"><div class="big">📖</div>'+
       (entries.length?'Keine Treffer.':'Noch keine Einträge.<br>Lege deinen ersten Eintrag an!')+'</div>';
@@ -565,10 +615,14 @@ function render(){
         ${e.beschwerden?`<div class="e-line"><b>⚠ Beschwerden:</b> ${esc(e.beschwerden)}${badge}</div>`
           :(e.intensitaet>0?`<div class="e-line"><b>⚠ Beschwerden:</b> ${badge}</div>`:'')}
         ${e.besonderheiten?`<div class="e-line"><b>📌 Besonderheiten:</b> ${esc(e.besonderheiten)}</div>`:''}
+        ${e.photo?`<div class="e-photo"><img src="${e.photo}" data-full="${e.id}" alt="Foto"></div>`:''}
       </div>`;
     }).join('');
     return `<div class="day-group"><div class="day-head"><span>📅 ${esc(day)}</span><span class="count">${groups[day].length} Eintrag(e)</span></div>${items}</div>`;
   }).join('');
+  box.querySelectorAll('.e-photo img').forEach(img=>img.addEventListener('click',()=>{
+    const w=window.open(); if(w) w.document.write('<img src="'+img.src+'" style="max-width:100%">');
+  }));
   box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>loadForEdit(Number(b.dataset.edit))));
   box.querySelectorAll('[data-del]').forEach(b=>{
     b.addEventListener('click',()=>{
@@ -591,18 +645,69 @@ function setPrintHeader(label){
   $('print-sub').textContent='Medizinische Ernährungstherapie · Verena Herrmann'+(label?'   —   '+label:'');
   $('print-owner').textContent=ownerLine();
 }
-function exportCSV(list,name){
+/* --- Mini-ZIP (Store, ohne Kompression) für CSV + Fotos --- */
+function crc32(bytes){
+  let crc=0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++){
+    let c=(crc^bytes[i])&0xFF;
+    for(let k=0;k<8;k++) c=c&1?(c>>>1)^0xEDB88320:c>>>1;
+    crc=(crc>>>8)^c;
+  }
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function dataUrlToBytes(dataUrl){
+  const bin=atob(dataUrl.split(',')[1]); const b=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) b[i]=bin.charCodeAt(i); return b;
+}
+function makeZip(files){ // files:[{name,data:Uint8Array}]
+  const enc=new TextEncoder(); const parts=[], central=[]; let offset=0;
+  files.forEach(f=>{
+    const nb=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(8,0,true);
+    lh.setUint32(14,crc,true); lh.setUint32(18,sz,true); lh.setUint32(22,sz,true);
+    lh.setUint16(26,nb.length,true);
+    const lhu=new Uint8Array(lh.buffer);
+    parts.push(lhu,nb,f.data);
+    const cd=new DataView(new ArrayBuffer(46));
+    cd.setUint32(0,0x02014b50,true); cd.setUint16(4,20,true); cd.setUint16(6,20,true);
+    cd.setUint32(16,crc,true); cd.setUint32(20,sz,true); cd.setUint32(24,sz,true);
+    cd.setUint16(28,nb.length,true); cd.setUint32(42,offset,true);
+    central.push(new Uint8Array(cd.buffer),nb);
+    offset+=lhu.length+nb.length+sz;
+  });
+  let cSize=0; central.forEach(p=>cSize+=p.length);
+  const eo=new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true); eo.setUint16(8,files.length,true); eo.setUint16(10,files.length,true);
+  eo.setUint32(12,cSize,true); eo.setUint32(16,offset,true);
+  return new Blob([...parts,...central,new Uint8Array(eo.buffer)],{type:'application/zip'});
+}
+function photoName(e){
+  const d=deToIso(e.date)||'foto'; const t=(e.clock||'').replace(':','-');
+  return d+(t?'_'+t:'')+'_'+e.id+'.jpg';
+}
+function exportCSV(list,baseName){
   if(!list.length){toast('Keine Einträge in diesem Zeitraum.');return;}
+  const sorted=list.slice().sort((a,b)=>(a.ts||a.id)-(b.ts||b.id));
   const meta=[];
   if(profile.name) meta.push('Name:;"'+profile.name.replace(/"/g,'""')+'"');
   if(profile.dob)  meta.push('Geburtsdatum:;'+isoToDe(profile.dob));
-  const head=['Datum','Uhrzeit','Uhrzeit und Ort','Speisen und Getränke','Beschwerden','Intensität (0-10)','Besonderheiten'];
-  const rows=list.slice().sort((a,b)=>(a.ts||a.id)-(b.ts||b.id)).map(e=>
-    [e.date,e.clock,e.ort,e.speisen,e.beschwerden,e.intensitaet,e.besonderheiten]
+  const head=['Datum','Uhrzeit','Uhrzeit und Ort','Speisen und Getränke','Beschwerden','Intensität (0-10)','Besonderheiten','Foto'];
+  const rows=sorted.map(e=>
+    [e.date,e.clock,e.ort,e.speisen,e.beschwerden,e.intensitaet,e.besonderheiten,(e.photo?'fotos/'+photoName(e):'')]
     .map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';'));
-  const body=(meta.length?meta.join('\n')+'\n\n':'')+head.join(';')+'\n'+rows.join('\n');
-  download(name,'﻿'+body,'text/csv');
-  toast('CSV exportiert');
+  const csv='﻿'+(meta.length?meta.join('\n')+'\n\n':'')+head.join(';')+'\n'+rows.join('\n');
+  const csvBase=baseName.replace(/\.csv$/,'');
+  const withPhotos=sorted.filter(e=>e.photo);
+  if(withPhotos.length){
+    const files=[{name:csvBase+'.csv',data:new TextEncoder().encode(csv)}];
+    withPhotos.forEach(e=>files.push({name:'fotos/'+photoName(e),data:dataUrlToBytes(e.photo)}));
+    downloadBlob(csvBase+'.zip',makeZip(files));
+    toast('ZIP (CSV + '+withPhotos.length+' Foto(s)) exportiert');
+  }else{
+    download(csvBase+'.csv',csv,'text/csv');
+    toast('CSV exportiert');
+  }
 }
 function printList(list,label){
   if(!list.length){toast('Keine Einträge in diesem Zeitraum.');return;}
@@ -645,10 +750,11 @@ $('file-import').addEventListener('change',ev=>{
   };
   r.readAsText(file); ev.target.value='';
 });
-function download(name,content,type){
-  const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob);
+function download(name,content,type){ downloadBlob(name,new Blob([content],{type})); }
+function downloadBlob(name,blob){
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
 /* ---------- Views & Toast ---------- */
